@@ -1,7 +1,7 @@
 SRCPATH=src
 BUILDPATH=build
-EXE=triangle.exe
-SRC=${SRCPATH}/triangle.cpp
+EXE=solar.exe
+SRC=${SRCPATH}/main.cpp ${SRCPATH}/planet.cpp
 LIBS=-lGL -lGLU -lglut -lGLEW
 
 ${BUILDPATH}/${EXE}: ${SRC}
