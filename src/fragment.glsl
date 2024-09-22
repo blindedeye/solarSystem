@@ -1,20 +1,5 @@
 #version 330 core
 
-in vec2 TexCoord;           // Received texture coordinates from vertex shader
-out vec4 FragColor;         // Output color of the fragment
-
-uniform sampler2D texture1; // The texture sampler
-
-void main()
-{
-    FragColor = texture(texture1, TexCoord); // Use the texture coordinates to sample the texture
-}
-
-
-
-
-/*#version 330 core
-
 in vec3 FragPos; // Fragment position
 in vec3 Normal;  // Fragment normal
 
@@ -47,4 +32,4 @@ void main()
     // Combine all lighting components
     vec3 result = (ambient + diffuse + specular) * objectColor;
     FragColor = vec4(result, 1.0);
-}*/
+}
