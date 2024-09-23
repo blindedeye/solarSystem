@@ -88,7 +88,7 @@ void setupShaders() {
     glDeleteShader(fragmentShader);
 }
 
-// Set uniform values before drawing
+// Function to set uniform values before drawing
 void setUniforms(int mouseX, int mouseY) {
     glUseProgram(shaderProgram);
 
@@ -104,26 +104,11 @@ void setUniforms(int mouseX, int mouseY) {
     model = glm::rotate(model, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate around X-axis
     model = glm::rotate(model, glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y-axis
 
-    // Adjust zoom based on rotation
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, zoom));
+    // Instead of applying zoom to the model, apply it to the view matrix
+    glm::vec3 cameraPos = glm::vec3(0.0, 0.0, 5.0 + zoom); // Adjust the camera position with zoom
+    glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
 
-    // Mouse-based zoom direction adjustment (converting screen to normalized device coordinates)
-    float ndcX = (2.0f * mouseX) / 800.0f - 1.0f; // Normalize mouse X
-    float ndcY = 1.0f - (2.0f * mouseY) / 600.0f; // Normalize mouse Y (invert Y because OpenGL is bottom-left origin)
-
-    // Calculate the mouse position in world space using the inverse of the view and projection matrices
-    glm::vec4 mouseWorld(ndcX, ndcY, 0.0f, 1.0f); 
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 5.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-    glm::mat4 invViewProj = glm::inverse(projection * view);
-
-    // Transform the NDC mouse position into world space
-    glm::vec4 worldMousePos = invViewProj * mouseWorld;
-    worldMousePos /= worldMousePos.w; // Perspective divide to get correct coordinates
-
-    // Translate model based on mouse location
-    glm::vec3 offset = glm::vec3(worldMousePos) * -zoom * 0.1f; // Adjust offset scale as needed
-    model = glm::translate(model, offset);
 
     // Send the transformation matrices to the shaders
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
@@ -138,7 +123,7 @@ void setUniforms(int mouseX, int mouseY) {
 
     // Set these uniforms according to your scene setup
     glUniform3f(lightPosLoc, 1.2f, 1.0f, 2.0f); // Example light position
-    glUniform3f(viewPosLoc, 0.0f, 0.0f, 5.0f);  // Camera position
+    glUniform3f(viewPosLoc, cameraPos.x, cameraPos.y, cameraPos.z); // Update to the new camera position
     glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f); // White light
     glUniform3f(objectColorLoc, 0.6f, 0.7f, 0.8f); // Example object color
 }
@@ -150,26 +135,9 @@ void display() {
     // Set the shader uniforms with the current mouse coordinates
     setUniforms(currentMouseX, currentMouseY);
 
-    // Set up the projection matrix
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(45.0, 800.0 / 600.0, 0.1, 100.0);
-
-    // Set up the model-view matrix
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0.0, 0.0, 5.0,  // Camera position
-              0.0, 0.0, 0.0,  // Look at position
-              0.0, 1.0, 0.0); // Up vector
-
+    // Since view is now handled inside setUniforms, we no longer need
+    // to explicitly set the projection and model-view here in legacy style.
     glPushMatrix();
-
-    // Apply zoom (camera translation)
-    glTranslatef(0.0f, 0.0f, zoom);
-
-    // Apply rotations
-    glRotatef(angleX, 1.0f, 0.0f, 0.0f); // Rotate around X-axis
-    glRotatef(angleY, 0.0f, 1.0f, 0.0f); // Rotate around Y-axis
 
     // Draw the planet
     earth.draw();
@@ -177,6 +145,7 @@ void display() {
     glPopMatrix();
     glutSwapBuffers();
 }
+
 
 // Mouse event handlers
 void mouse(int button, int state, int x, int y) {
@@ -217,11 +186,11 @@ void motion(int x, int y) {
 }
 
 // Optional: Use passive motion to update mouse position when not dragging
-void passiveMotion(int x, int y) {
-    currentMouseX = x;
-    currentMouseY = y;
-    glutPostRedisplay();
-}
+// void passiveMotion(int x, int y) {
+//     currentMouseX = x;
+//     currentMouseY = y;
+//     glutPostRedisplay();
+// }
 
 // Initialization function
 void init() {
@@ -242,7 +211,7 @@ int main(int argc, char** argv) {
     glutDisplayFunc(display);
     glutMouseFunc(mouse);
     glutMotionFunc(motion);
-    glutPassiveMotionFunc(passiveMotion); // Track mouse even when not clicking
+    // glutPassiveMotionFunc(passiveMotion); // Track mouse even when not clicking
     glutMainLoop();
 
     return 0;
