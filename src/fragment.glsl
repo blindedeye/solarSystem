@@ -1,14 +1,15 @@
 #version 330 core
 
-in vec3 FragPos; // Fragment position
-in vec3 Normal;  // Fragment normal
+in vec3 FragPos;   // Fragment position
+in vec3 Normal;    // Fragment normal
+in vec2 TexCoord;  // Texture coordinate from vertex shader
 
 out vec4 FragColor; // Output color
 
-uniform vec3 lightPos;   // Position of the light source
-uniform vec3 viewPos;    // Position of the camera/viewer
-uniform vec3 lightColor; // Color of the light
-uniform vec3 objectColor; // Color of the object
+uniform sampler2D texture1; // Texture sampler
+uniform vec3 lightPos;      // Position of the light source
+uniform vec3 viewPos;       // Position of the camera/viewer
+uniform vec3 lightColor;    // Color of the light
 
 void main()
 {
@@ -30,6 +31,11 @@ void main()
     vec3 specular = specularStrength * spec * lightColor;
 
     // Combine all lighting components
-    vec3 result = (ambient + diffuse + specular) * objectColor;
-    FragColor = vec4(result, 1.0);
+    vec3 lighting = (ambient + diffuse + specular);
+
+    // Sample the texture color using TexCoord
+    vec4 texColor = texture(texture1, TexCoord);
+
+    // Final color combining lighting and texture color
+    FragColor = vec4(lighting, 1.0) * texColor;
 }

@@ -1,12 +1,16 @@
+#include <GL/glut.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 #include "planet.h"
 
-// Constructor initializing the planet's properties
-Planet::Planet(float radius, int slices, int stacks)
-    : radius(radius), slices(slices), stacks(stacks) {}
+// Function to render the textured planet
+void renderPlanet() {
+    GLUquadric* quad = gluNewQuadric();
+    gluQuadricTexture(quad, GL_TRUE); // Enable texture mapping on the quadric
 
-// Method to draw the planet using glutSolidSphere
-void Planet::draw() {
     glPushMatrix();
-    glutSolidSphere(radius, slices, stacks);
+    gluSphere(quad, 1.0, 50, 50); // Render the sphere with texture
     glPopMatrix();
+
+    gluDeleteQuadric(quad);
 }
