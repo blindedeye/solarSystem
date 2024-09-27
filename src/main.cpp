@@ -2,6 +2,7 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <iostream>
+#include <cmath>
 #include "planet.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -9,9 +10,24 @@
 // Texture ID
 GLuint earthTexture;
 
-// Rotation and zoom variables
-float rotationX = 0.0f, rotationY = 0.0f;
-float zoom = -5.0f; // Negative value to place the camera back
+// Camera variables
+float cameraPosX = 0.0f, cameraPosY = 0.0f, cameraPosZ = 5.0f; // Camera position
+float cameraFrontX = 0.0f, cameraFrontY = 0.0f, cameraFrontZ = -1.0f; // Camera direction
+float cameraUpX = 0.0f, cameraUpY = 1.0f, cameraUpZ = 0.0f; // Camera up vector
+float cameraYaw = -90.0f; // Initial yaw angle (facing forward)
+float cameraPitch = 0.0f; // Initial pitch angle
+float cameraSpeed = 0.1f; // Base speed of camera movement
+float mouseSensitivity = 0.1f; // Mouse sensitivity for looking around
+
+// Center coordinates for the window
+const int centerX = 400;
+const int centerY = 300;
+
+// Movement states for smooth movement
+bool moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+
+// Flags to control cursor re-centering
+bool shouldWarp = false;
 
 // Function to load the texture using stb_image
 void loadTexture(const char* filename) {
@@ -42,6 +58,24 @@ void loadTexture(const char* filename) {
     stbi_image_free(data);
 }
 
+// Update the camera direction based on yaw and pitch
+void updateCameraDirection() {
+    // Convert degrees to radians by multiplying by (PI / 180)
+    float yawRad = cameraYaw * (M_PI / 180.0f);
+    float pitchRad = cameraPitch * (M_PI / 180.0f);
+
+    // Calculate the front vector based on the yaw and pitch angles
+    cameraFrontX = cosf(yawRad) * cosf(pitchRad);
+    cameraFrontY = sinf(pitchRad);
+    cameraFrontZ = sinf(yawRad) * cosf(pitchRad);
+
+    // Normalize the direction vector to maintain consistent movement speed
+    float length = sqrt(cameraFrontX * cameraFrontX + cameraFrontY * cameraFrontY + cameraFrontZ * cameraFrontZ);
+    cameraFrontX /= length;
+    cameraFrontY /= length;
+    cameraFrontZ /= length;
+}
+
 // Set up basic projection and model-view matrices
 void setupView() {
     glMatrixMode(GL_PROJECTION);
@@ -50,9 +84,9 @@ void setupView() {
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(0.0, 0.0, 5.0, // Camera position
-              0.0, 0.0, 0.0, // Look-at point
-              0.0, 1.0, 0.0); // Up vector
+    gluLookAt(cameraPosX, cameraPosY, cameraPosZ,                    // Camera position
+              cameraPosX + cameraFrontX, cameraPosY + cameraFrontY, cameraPosZ + cameraFrontZ, // Look-at point
+              cameraUpX, cameraUpY, cameraUpZ);                     // Up vector
 }
 
 // Display function to render the scene
@@ -63,11 +97,6 @@ void display() {
 
     glPushMatrix();
 
-    // Apply zoom and basic rotations
-    glTranslatef(0.0f, 0.0f, zoom);
-    glRotatef(rotationX, 1.0f, 0.0f, 0.0f);
-    glRotatef(rotationY, 0.0f, 1.0f, 0.0f);
-
     // Render the planet
     renderPlanet();
 
@@ -77,29 +106,79 @@ void display() {
     glutSwapBuffers();
 }
 
-// Mouse motion handler for rotating the sphere
-void mouseMotion(int x, int y) {
-    static int lastX = x, lastY = y;
-    rotationX += (y - lastY) * 0.5f;
-    rotationY += (x - lastX) * 0.5f;
-    lastX = x;
-    lastY = y;
-    glutPostRedisplay();
+// Update the camera position based on movement states
+void updateCameraPosition() {
+    float cameraRightX = cameraUpY * cameraFrontZ - cameraUpZ * cameraFrontY;
+    float cameraRightY = cameraUpZ * cameraFrontX - cameraUpX * cameraFrontZ;
+    float cameraRightZ = cameraUpX * cameraFrontY - cameraUpY * cameraFrontX;
+
+    // Normalize the right vector
+    float rightLength = sqrt(cameraRightX * cameraRightX + cameraRightY * cameraRightY + cameraRightZ * cameraRightZ);
+    cameraRightX /= rightLength;
+    cameraRightY /= rightLength;
+    cameraRightZ /= rightLength;
+
+    // Move camera based on direction
+    if (moveForward) {
+        cameraPosX += cameraFrontX * cameraSpeed;
+        cameraPosY += cameraFrontY * cameraSpeed;
+        cameraPosZ += cameraFrontZ * cameraSpeed;
+    }
+    if (moveBackward) {
+        cameraPosX -= cameraFrontX * cameraSpeed;
+        cameraPosY -= cameraFrontY * cameraSpeed;
+        cameraPosZ -= cameraFrontZ * cameraSpeed;
+    }
+    if (moveLeft) {
+        cameraPosX -= cameraRightX * cameraSpeed;
+        cameraPosZ -= cameraRightZ * cameraSpeed;
+    }
+    if (moveRight) {
+        cameraPosX += cameraRightX * cameraSpeed;
+        cameraPosZ += cameraRightZ * cameraSpeed;
+    }
 }
 
-// Keyboard handler for zooming using Q and E keys
+// Mouse motion handler for rotating the camera
+void mouseMotion(int x, int y) {
+    // Calculate the offset from the center
+    float xOffset = x - centerX;
+    float yOffset = centerY - y; // Reversed since y-coordinates range bottom to top
+
+    xOffset *= mouseSensitivity;
+    yOffset *= mouseSensitivity;
+
+    cameraYaw += xOffset;
+    cameraPitch += yOffset;
+
+    // Constrain the pitch angle to avoid screen flipping
+    if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+    if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+
+    updateCameraDirection(); // Update the camera direction with new yaw and pitch
+
+    // Set flag to re-center cursor on the next idle call
+    shouldWarp = true;
+}
+
+// Keyboard handler for movement states
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
-        case 'q': // Zoom in
-            zoom += 0.5f;
-            break;
-        case 'e': // Zoom out
-            zoom -= 0.5f;
-            break;
-        default:
-            break;
+        case 'w': moveForward = true; break;
+        case 's': moveBackward = true; break;
+        case 'd': moveLeft = true; break;
+        case 'a': moveRight = true; break;
     }
-    glutPostRedisplay();
+}
+
+// Keyboard release handler to stop movement
+void keyboardUp(unsigned char key, int x, int y) {
+    switch (key) {
+        case 'w': moveForward = false; break;
+        case 's': moveBackward = false; break;
+        case 'd': moveLeft = false; break;
+        case 'a': moveRight = false; break;
+    }
 }
 
 // Initialization function
@@ -108,6 +187,23 @@ void init() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Set clear color to black
     loadTexture("include/images/earth.jpg"); // Ensure earth.jpg is in the correct directory
     setupView(); // Set up the camera and perspective
+
+    // Hide the mouse cursor
+    glutSetCursor(GLUT_CURSOR_NONE);
+}
+
+// Idle function to update camera position continuously
+void idle() {
+    updateCameraPosition();
+    setupView();
+
+    // Re-center cursor only if needed to avoid freezing
+    if (shouldWarp) {
+        glutWarpPointer(centerX, centerY);
+        shouldWarp = false;
+    }
+
+    glutPostRedisplay();
 }
 
 // Main function
@@ -120,8 +216,13 @@ int main(int argc, char** argv) {
     init();
 
     glutDisplayFunc(display);
-    glutMotionFunc(mouseMotion);       // Register mouse motion callback
-    glutKeyboardFunc(keyboard);        // Register keyboard callback for zooming
+    glutIdleFunc(idle);                // Continuously update position
+    glutPassiveMotionFunc(mouseMotion); // Use passive motion for free look
+    glutKeyboardFunc(keyboard);        // Register keyboard callback for camera movement
+    glutKeyboardUpFunc(keyboardUp);    // Register keyboard up callback for stopping movement
+
+    // Center the cursor initially
+    glutWarpPointer(centerX, centerY);
 
     glutMainLoop();
     return 0;
