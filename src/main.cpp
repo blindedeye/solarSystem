@@ -10,6 +10,8 @@
 using namespace std;
 
 GLuint earthTexture;
+GLuint sunTexture;
+
 // Camera implementation from yt video
 float cameraPosX = 0.0f, cameraPosY = 0.0f, cameraPosZ = 5.0f;
 float cameraFrontX = 0.0f, cameraFrontY = 0.0f, cameraFrontZ = -1.0f;
@@ -24,22 +26,24 @@ bool moveForward = false, moveBackward = false, moveLeft = false, moveRight = fa
 bool shouldWarp = false; // cursor recentering (makes more sense after you run)
 
 
-void loadTexture(const char* filename) {
+void loadTexture(const char* filename, GLuint &textureID) {
     int width, height, nrChannels;
     stbi_set_flip_vertically_on_load(true);  // Flip image vertically
     unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
     if (!data) {
-        cerr << "Failed to load texture" << endl;
+        cerr << "Failed to load texture: " << filename << endl;
         return;
     }
-    glGenTextures(1, &earthTexture);
-    glBindTexture(GL_TEXTURE_2D, earthTexture);
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    if (nrChannels == 4) gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    else gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+    if (nrChannels == 4)
+        gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    else
+        gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
     stbi_image_free(data);
 }
 
@@ -71,6 +75,19 @@ void setupView() {
               cameraUpX, cameraUpY, cameraUpZ);
 }
 
+void renderSun() {
+    glPushMatrix();
+    glTranslatef(26.0f, 0.0f, 0.0f);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, sunTexture);
+    GLUquadric* sun = gluNewQuadric();
+    gluQuadricTexture(sun, GL_TRUE);
+    gluSphere(sun, 2.0f, 50, 50);
+    gluDeleteQuadric(sun);
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+}
+
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_TEXTURE_2D);
@@ -78,9 +95,11 @@ void display() {
     glPushMatrix();
     renderPlanet();
     glPopMatrix();
+    renderSun();
     glDisable(GL_TEXTURE_2D);
     glutSwapBuffers();
 }
+
 
 void updateCameraPosition() {
     float cameraRightX = cameraUpY * cameraFrontZ - cameraUpZ * cameraFrontY;
@@ -149,11 +168,18 @@ void keyboardUp(unsigned char key, int x, int y) {
 
 void init() {
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black
-    loadTexture("include/images/earth.jpg");
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+
+    // Load Earth texture
+    loadTexture("include/images/earth.jpg", earthTexture);
+
+    // Load Sun texture
+    loadTexture("include/images/sun.jpg", sunTexture); // Replace with actual path to your sun.jpg
+
     setupView();
     glutSetCursor(GLUT_CURSOR_NONE); // Hide cursor
 }
+
 
 void idle() {
     updateCameraPosition();
