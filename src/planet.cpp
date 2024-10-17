@@ -3,14 +3,11 @@
 #include <GL/glu.h>
 #include "planet.h"
 
-// Function to render the textured planet
 void renderPlanet() {
     GLUquadric* quad = gluNewQuadric();
-    gluQuadricTexture(quad, GL_TRUE); // Enable texture mapping on the quadric
-
+    gluQuadricTexture(quad, GL_TRUE);
     glPushMatrix();
-    gluSphere(quad, 1.0, 50, 50); // Render the sphere with texture
+    gluSphere(quad, 1.0, 50, 50); // Render sphere w/ texture
     glPopMatrix();
-
     gluDeleteQuadric(quad);
 }
