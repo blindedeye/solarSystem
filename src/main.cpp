@@ -4,13 +4,17 @@
 #include <iostream>
 #include <cmath>
 #include "planet.h"
+#include "orbit.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h" // library for easier texture mapping
 
 using namespace std;
 
-GLuint earthTexture;
-GLuint sunTexture;
+float earthRotationAngle = 0.0f;
+GLuint earthTexture, sunTexture, jupiterTexture,
+       marsTexture, mercuryTexture, moonTexture,
+       neptuneTexture, saturnTexture, uranusTexture,
+       venusTexture;
 
 // Camera implementation from yt video
 float cameraPosX = 0.0f, cameraPosY = 0.0f, cameraPosZ = 5.0f;
@@ -25,12 +29,13 @@ const int centerY = 300;
 bool moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 bool shouldWarp = false; // cursor recentering (makes more sense after you run)
 
+Orbit earthOrbit(10.0f, 4.0f);
 
-void loadTexture(const char* filename, GLuint &textureID) {
+void loadTexture(const char* filename, GLuint &textureID){
     int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true);  // Flip image vertically
+    stbi_set_flip_vertically_on_load(true);
     unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
-    if (!data) {
+    if (!data){
         cerr << "Failed to load texture: " << filename << endl;
         return;
     }
@@ -47,7 +52,7 @@ void loadTexture(const char* filename, GLuint &textureID) {
     stbi_image_free(data);
 }
 
-void updateCameraDirection() {
+void updateCameraDirection(){
     // Convert degrees to radians
     float yawRad = cameraYaw * (M_PI / 180.0f);
     float pitchRad = cameraPitch * (M_PI / 180.0f);
@@ -64,10 +69,10 @@ void updateCameraDirection() {
     cameraFrontZ /= length;
 }
 
-void setupView() {
+void setupView(){
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0, 800.0 / 600.0, 0.1, 100.0); // Basic perspective
+    gluPerspective(45.0, 800.0 / 600.0, 0.1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(cameraPosX, cameraPosY, cameraPosZ,                    
@@ -75,9 +80,10 @@ void setupView() {
               cameraUpX, cameraUpY, cameraUpZ);
 }
 
-void renderSun() {
+void renderSun(){
     glPushMatrix();
-    glTranslatef(26.0f, 0.0f, 0.0f);
+    glDisable(GL_LIGHTING); // Disable lighting for the sun to keep it fully lit
+    glTranslatef(0.0f, 0.0f, 0.0f);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, sunTexture);
     GLUquadric* sun = gluNewQuadric();
@@ -85,11 +91,14 @@ void renderSun() {
     gluSphere(sun, 2.0f, 50, 50);
     gluDeleteQuadric(sun);
     glDisable(GL_TEXTURE_2D);
+    glEnable(GL_LIGHTING); // Re-enable lighting for the rest of the scene
     glPopMatrix();
 }
 
-void display() {
+void display(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    GLfloat lightPosition[] ={ 0.0f, 0.0f, 0.0f, 1.0f }; // same as sun pos
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, earthTexture);
     glPushMatrix();
@@ -101,7 +110,7 @@ void display() {
 }
 
 
-void updateCameraPosition() {
+void updateCameraPosition(){
     float cameraRightX = cameraUpY * cameraFrontZ - cameraUpZ * cameraFrontY;
     float cameraRightY = cameraUpZ * cameraFrontX - cameraUpX * cameraFrontZ;
     float cameraRightZ = cameraUpX * cameraFrontY - cameraUpY * cameraFrontX;
@@ -109,28 +118,27 @@ void updateCameraPosition() {
     cameraRightX /= rightLength;
     cameraRightY /= rightLength;
     cameraRightZ /= rightLength;
-    if (moveForward) {
+    if (moveForward){
         cameraPosX += cameraFrontX * cameraSpeed;
         cameraPosY += cameraFrontY * cameraSpeed;
         cameraPosZ += cameraFrontZ * cameraSpeed;
     }
-    if (moveBackward) {
+    if (moveBackward){
         cameraPosX -= cameraFrontX * cameraSpeed;
         cameraPosY -= cameraFrontY * cameraSpeed;
         cameraPosZ -= cameraFrontZ * cameraSpeed;
     }
-    if (moveLeft) {
+    if (moveLeft){
         cameraPosX -= cameraRightX * cameraSpeed;
         cameraPosZ -= cameraRightZ * cameraSpeed;
     }
-    if (moveRight) {
+    if (moveRight){
         cameraPosX += cameraRightX * cameraSpeed;
         cameraPosZ += cameraRightZ * cameraSpeed;
     }
 }
 
-// Rotation
-void mouseMotion(int x, int y) {
+void mouseMotion(int x, int y){
     float xOffset = x - centerX;
     float yOffset = centerY - y;
     xOffset *= mouseSensitivity;
@@ -146,8 +154,8 @@ void mouseMotion(int x, int y) {
     shouldWarp = true;
 }
 
-void keyboard(unsigned char key, int x, int y) {
-    switch (key) {
+void keyboard(unsigned char key, int x, int y){
+    switch (key){
         case 'w': moveForward = true; break;
         case 's': moveBackward = true; break;
         case 'd': moveLeft = true; break;
@@ -156,8 +164,8 @@ void keyboard(unsigned char key, int x, int y) {
     }
 }
 
-void keyboardUp(unsigned char key, int x, int y) {
-    switch (key) {
+void keyboardUp(unsigned char key, int x, int y){
+    switch (key){
         case 'w': moveForward = false; break;
         case 's': moveBackward = false; break;
         case 'd': moveLeft = false; break;
@@ -166,32 +174,63 @@ void keyboardUp(unsigned char key, int x, int y) {
     }
 }
 
-void init() {
+void init(){
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
 
-    // Load Earth texture
+    // Sun light properties
+    GLfloat lightAmbient[] ={ 0.2f, 0.2f, 0.2f, 1.0f };
+    GLfloat lightDiffuse[] ={ 1.0f, 1.0f, 1.0f, 1.0f };
+    GLfloat lightSpecular[] ={ 1.0f, 1.0f, 1.0f, 1.0f };
+    GLfloat lightPosition[] ={ 26.0f, 0.0f, 0.0f, 1.0f };
+
+    glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background change later w/ background.jpg
+
+    // Load textures
     loadTexture("include/images/earth.jpg", earthTexture);
-
-    // Load Sun texture
-    loadTexture("include/images/sun.jpg", sunTexture); // Replace with actual path to your sun.jpg
+    loadTexture("include/images/sun.jpg", sunTexture);
+    // loadTexture("include/images/jupiter.jpg", jupiterTexture);
+    // loadTexture("include/images/mars.jpg", marsTexture);
+    // loadTexture("include/images/mercury.jpg", mercuryTexture);
+    // loadTexture("include/images/moon.jpg", moonTexture);
+    // loadTexture("include/images/neptune.jpg", neptuneTexture);
+    // loadTexture("include/images/uranus.jpg", uranusTexture);
+    // loadTexture("include/images/uranus_ring", uranusRingTexture);
+    // loadTexture("include/images/venus.jpg", venusTexture);
+    // loadTexture("include/images/saturn.jpg", saturnTexture);
+    // loadTexture("include/images/saturn_ring.jpg", saturnRingTexture);
 
     setupView();
     glutSetCursor(GLUT_CURSOR_NONE); // Hide cursor
 }
 
 
-void idle() {
+void idle(){
     updateCameraPosition();
+
+    // Update Earth's orbit
+    earthOrbit.updateOrbit(0.1f);
+
+    earthRotationAngle += 0.05f; // Earth rotation speed - could make a function for all planets
+    if (earthRotationAngle >= 360.0f){
+        earthRotationAngle -= 360.0f;
+    }
+
     setupView();
-    if (shouldWarp) { // Cursor would lock up so found this to avoid the freezing
+    if (shouldWarp){ // Cursor would lock up so found this to avoid the freezing
         glutWarpPointer(centerX, centerY);
         shouldWarp = false;
     }
     glutPostRedisplay();
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv){
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(800, 600);
