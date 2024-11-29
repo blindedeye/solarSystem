@@ -26,5 +26,5 @@ void main()
 
     vec3 lighting = (ambient + diffuse + specular); // combine ambient, diffused, and specular lighting
     vec4 texColor = texture(texture1, TexCoord);
-    FragColor = vec4(lighting, 1.0) * texColor; // final lighting color
+    FragColor = vec4(lighting, 1.0) * texColor; // final result
 }

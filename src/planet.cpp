@@ -11,8 +11,6 @@ void renderPlanet(){
     GLUquadric* quad = gluNewQuadric();
     glPushMatrix();
     glTranslatef(earthOrbit.getX(), 0.0f, earthOrbit.getZ());
-
-    // Rotate rarth around its axis
     glRotatef(earthRotationAngle, 0.0f, 1.0f, 0.0f);
     glRotatef(-90.0f, 1.0f, 0.0f, 0.0f); // Sphere wasn't mapped how I like so rotate it -90
     gluQuadricTexture(quad, GL_TRUE);

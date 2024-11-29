@@ -14,7 +14,7 @@ float earthRotationAngle = 0.0f;
 GLuint earthTexture, sunTexture, jupiterTexture,
        marsTexture, mercuryTexture, moonTexture,
        neptuneTexture, saturnTexture, uranusTexture,
-       venusTexture;
+       venusTexture, uranusRingTexture, saturnRingTexture;
 
 // Camera implementation from yt video
 float cameraPosX = 0.0f, cameraPosY = 0.0f, cameraPosZ = 5.0f;
@@ -27,9 +27,17 @@ float mouseSensitivity = 0.1f; // for looking around
 const int centerX = 400;
 const int centerY = 300;
 bool moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-bool shouldWarp = false; // cursor recentering (makes more sense after you run)
+bool shouldWarp = false; // cursor recentering
 
 Orbit earthOrbit(10.0f, 4.0f);
+Orbit moonOrbit(1.5f, 0.5f); // Moon orbiting around Earth, with smaller radius and slower speed
+Orbit marsOrbit(15.0f, 2.5f);
+Orbit mercuryOrbit(7.0f, 8.0f);
+Orbit venusOrbit(9.0f, 3.0f);
+Orbit jupiterOrbit(20.0f, 1.5f);
+Orbit saturnOrbit(25.0f, 1.2f);
+Orbit uranusOrbit(30.0f, 1.0f);
+Orbit neptuneOrbit(35.0f, 0.8f);
 
 void loadTexture(const char* filename, GLuint &textureID){
     int width, height, nrChannels;
@@ -53,16 +61,16 @@ void loadTexture(const char* filename, GLuint &textureID){
 }
 
 void updateCameraDirection(){
-    // Convert degrees to radians
+    // degrees to radians
     float yawRad = cameraYaw * (M_PI / 180.0f);
     float pitchRad = cameraPitch * (M_PI / 180.0f);
 
-    // Calc front vector
+    // front vector
     cameraFrontX = cosf(yawRad) * cosf(pitchRad);
     cameraFrontY = sinf(pitchRad);
     cameraFrontZ = sinf(yawRad) * cosf(pitchRad);
 
-    // Const movement speed
+    // movement speed
     float length = sqrt(cameraFrontX * cameraFrontX + cameraFrontY * cameraFrontY + cameraFrontZ * cameraFrontZ);
     cameraFrontX /= length;
     cameraFrontY /= length;
@@ -95,20 +103,40 @@ void renderSun(){
     glPopMatrix();
 }
 
+void renderPlanet(Orbit &orbit, GLuint &texture, float radius){
+    glPushMatrix();
+    glTranslatef(orbit.getX(), 0.0f, orbit.getZ());
+    GLUquadric* quad = gluNewQuadric();
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    gluQuadricTexture(quad, GL_TRUE);
+    gluSphere(quad, radius, 50, 50);
+    gluDeleteQuadric(quad);
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+}
+
 void display(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     GLfloat lightPosition[] ={ 0.0f, 0.0f, 0.0f, 1.0f }; // same as sun pos
     glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, earthTexture);
-    glPushMatrix();
-    renderPlanet();
-    glPopMatrix();
+
     renderSun();
-    glDisable(GL_TEXTURE_2D);
+    renderPlanet(earthOrbit, earthTexture, 1.0f);
+    glPushMatrix();
+    glTranslatef(earthOrbit.getX(), 0.0f, earthOrbit.getZ());
+    renderPlanet(moonOrbit, moonTexture, 0.3f);
+    glPopMatrix();
+    renderPlanet(marsOrbit, marsTexture, 0.8f);
+    renderPlanet(mercuryOrbit, mercuryTexture, 0.5f);
+    renderPlanet(venusOrbit, venusTexture, 0.9f);
+    renderPlanet(jupiterOrbit, jupiterTexture, 1.5f);
+    renderPlanet(saturnOrbit, saturnTexture, 1.3f);
+    renderPlanet(uranusOrbit, uranusTexture, 1.2f);
+    renderPlanet(neptuneOrbit, neptuneTexture, 1.1f);
+
     glutSwapBuffers();
 }
-
 
 void updateCameraPosition(){
     float cameraRightX = cameraUpY * cameraFrontZ - cameraUpZ * cameraFrontY;
@@ -174,6 +202,29 @@ void keyboardUp(unsigned char key, int x, int y){
     }
 }
 
+void specialKeys(int key, int x, int y) {
+    switch (key) {
+        case GLUT_KEY_LEFT:
+            cameraYaw -= 2.0f;
+            updateCameraDirection();
+            break;
+        case GLUT_KEY_RIGHT:
+            cameraYaw += 2.0f;
+            updateCameraDirection();
+            break;
+        case GLUT_KEY_UP:
+            cameraPitch += 2.0f;
+            if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+            updateCameraDirection();
+            break;
+        case GLUT_KEY_DOWN:
+            cameraPitch -= 2.0f;
+            if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+            updateCameraDirection();
+            break;
+    }
+}
+
 void init(){
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
@@ -190,34 +241,39 @@ void init(){
     glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
     glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background change later w/ background.jpg
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black background: future- get spacey type background
 
-    // Load textures
     loadTexture("include/images/earth.jpg", earthTexture);
     loadTexture("include/images/sun.jpg", sunTexture);
-    // loadTexture("include/images/jupiter.jpg", jupiterTexture);
-    // loadTexture("include/images/mars.jpg", marsTexture);
-    // loadTexture("include/images/mercury.jpg", mercuryTexture);
-    // loadTexture("include/images/moon.jpg", moonTexture);
-    // loadTexture("include/images/neptune.jpg", neptuneTexture);
-    // loadTexture("include/images/uranus.jpg", uranusTexture);
-    // loadTexture("include/images/uranus_ring", uranusRingTexture);
-    // loadTexture("include/images/venus.jpg", venusTexture);
-    // loadTexture("include/images/saturn.jpg", saturnTexture);
-    // loadTexture("include/images/saturn_ring.jpg", saturnRingTexture);
+    loadTexture("include/images/jupiter.jpg", jupiterTexture);
+    loadTexture("include/images/mars.jpg", marsTexture);
+    loadTexture("include/images/mercury.jpg", mercuryTexture);
+    loadTexture("include/images/moon.jpg", moonTexture);
+    loadTexture("include/images/neptune.jpg", neptuneTexture);
+    loadTexture("include/images/uranus.jpg", uranusTexture);
+    //loadTexture("include/images/uranus_ring.jpg", uranusRingTexture);
+    loadTexture("include/images/venus.jpg", venusTexture);
+    loadTexture("include/images/saturn.jpg", saturnTexture);
+    //loadTexture("include/images/saturn_ring.jpg", saturnRingTexture);
 
     setupView();
     glutSetCursor(GLUT_CURSOR_NONE); // Hide cursor
 }
 
-
 void idle(){
     updateCameraPosition();
 
-    // Update Earth's orbit
     earthOrbit.updateOrbit(0.1f);
+    moonOrbit.updateOrbit(0.3f); // Faster orbit around Earth
+    marsOrbit.updateOrbit(0.1f);
+    mercuryOrbit.updateOrbit(0.1f);
+    venusOrbit.updateOrbit(0.1f);
+    jupiterOrbit.updateOrbit(0.1f);
+    saturnOrbit.updateOrbit(0.1f);
+    uranusOrbit.updateOrbit(0.1f);
+    neptuneOrbit.updateOrbit(0.1f);
 
-    earthRotationAngle += 0.05f; // Earth rotation speed - could make a function for all planets
+    earthRotationAngle += 0.05f; // Earth rotation speed
     if (earthRotationAngle >= 360.0f){
         earthRotationAngle -= 360.0f;
     }
@@ -234,13 +290,14 @@ int main(int argc, char** argv){
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(800, 600);
-    glutCreateWindow("Textured Sphere - Earth");
+    glutCreateWindow("Solar System Sim");
     init();
     glutDisplayFunc(display);
     glutIdleFunc(idle);
     glutPassiveMotionFunc(mouseMotion); // 'free look'
     glutKeyboardFunc(keyboard);
     glutKeyboardUpFunc(keyboardUp);
+    glutSpecialFunc(specialKeys); // arrow keys
     glutWarpPointer(centerX, centerY);
     glutMainLoop();
     return 0;
